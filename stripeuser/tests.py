@@ -2,17 +2,18 @@ from decimal import Decimal
 from django.test import TestCase
 from djstripe.models import Customer, Charge, Card
 from django.contrib.auth.models import User
-from stripe import Payout, Customer, Charge, Recipient, Account
+import stripe
 import json
 import time
 # Create your tests here.
 class StripeUserTest(TestCase):
-    def setUp(self):
-        user = User.objects.create_user(username='tega', password='N0Password', email='tesabunor@gmail.com')
-        self.customer = Customer.create(user)
     
     def test_customer_stripe_id(self):
-        self.assertIsNotNone(self.customer.stripe_id)
+        self.customer = stripe.Customer.create(
+            email="aghogho@gmail.com",
+            description="customer for aghogho",
+        )
+        self.assertIsNotNone(self.customer.id)
     
     def test_adding_a_card_to_customer(self):
         kwargs = {"number": 4242424242424242, "cvc":333, "exp_month":8, "exp_year":2018}
@@ -39,8 +40,8 @@ class StripeUserTest(TestCase):
         self.assertEqual(self.charge.failure_code, '', "failure code is '' null, it is %s" % self.charge.failure_code)
 
 class StripeApiTest(TestCase):
-    def testAccount(self):
-        account = Account.create(
+    def test_creating_account(self):
+        account = stripe.Account.create(
             type="custom",
             country="AU",
             email="esabunor@gmail.com"
@@ -52,14 +53,19 @@ class StripeApiTest(TestCase):
         self.assertIsNotNone(id)
 
     def test_adding_external_account(self):
-        account = Account.create(
-            type="custom",
-            country="AU",
-            email="nukie@gmail.com",
-        )
-        kwargs = {"object":"card", "number": 42424252174242424242, "cvc":333, "exp_month":8, "exp_year":2018, "currency":"aud", "default_for_currency":True}
-        self.token = Card.create_token(**kwargs)
-        account.external_accounts.create(external_account=self.token)
+        account = stripe.Account.retrieve("acct_1B4q0jKOv9qXOFkx")
+        #kwargs = {"object":"card", "number": 4242424242424242, "cvc":333, "exp_month":8, "exp_year":2018}
+        account.external_accounts.create(external_account="card_1B4qnzIs3uaJ3rA7HW7PAf4H")
+        account.save()
+
+    def test_verifying_account(self):
+        account = stripe.Account.retrieve("acct_1B4q0jKOv9qXOFkx")
+        with open("property2.jpg", "rb") as fp:
+            fileupload = stripe.FileUpload.create(
+                purpose="identity_document",
+                file=fp,
+                stripe_account=account.id
+            )
         account.legal_entity.dob.day = 19
         account.legal_entity.dob.month = 4
         account.legal_entity.dob.year = 1997
@@ -68,11 +74,35 @@ class StripeApiTest(TestCase):
         account.legal_entity.type = "individual"
         account.tos_acceptance.date = int(time.time())
         account.tos_acceptance.ip = '8.8.8.8'
+        account.legal_entity.address.city = "bentley" 
+        account.legal_entity.address.line1 = "31A lawson Street"
+        account.legal_entity.address.postal_code = "6102"
+        account.legal_entity.address.state = "wa"
+        account.legal_entity.verification.document = fileupload.id
         account.save()
-        stripe.Payout.create(
-            amount=1000,
-            currency="aud",
-            stripe_account=account.id,
+
+    def test_add_source_to_a_customer(self):
+        customer = stripe.Customer.retrieve("cus_BRjIE3U26cpZmC")
+        kwargs = {"object":"card", "number": 4242424242424242, "cvc":333, "exp_month":8, "exp_year":2018}
+        customer.sources.create(source=kwargs) 
+
+    def test_creating_a_new_customer(self):
+        customer = stripe.Customer.create(
+            email="aghogho@gmail.com",
+            description="customer for aghogho",
         )
 
+    def test_charging_customer_with_id(self):
+        customer = stripe.Customer.retrieve("cus_BRjIE3U26cpZmC")
+        charge = stripe.Charge.create(
+            amount=2000,
+            currency="aud",
+            customer=customer.id,
+            description="charging aghogho 2000",
+        )
     
+    def test_paying_out_account(self):
+        pass
+    
+    def test_paying_out_account_with_customer(self):
+        pass

@@ -1,3 +1,4 @@
 from django import forms
 
-class StripeForm( )
+class StripeForm(forms.Form):
+    stripe_token = forms.CharField(max_length=256)
