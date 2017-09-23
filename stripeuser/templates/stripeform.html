@@ -3,125 +3,132 @@
         <title>Stripe add Credit card</title>
         <!-- Latest compiled and minified CSS -->
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <style>
+            /**
+            * The CSS shown here will not be introduced in the Quickstart guide, but shows
+            * how you can use CSS to style your Element's container.
+            */
+            .StripeElement {
+                background-color: white;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border: 1px solid transparent;
+                box-shadow: 0 1px 3px 0 #e6ebf1;
+                -webkit-transition: box-shadow 150ms ease;
+                transition: box-shadow 150ms ease;
+            }
+
+            .StripeElement--focus {
+                box-shadow: 0 1px 3px 0 #cfd7df;
+            }
+
+            .StripeElement--invalid {
+                border-color: #fa755a;
+            }
+
+            .StripeElement--webkit-autofill {
+                background-color: #fefde5 !important;
+            }
+        </style>
     </head>
     <body>
         {% block head %}
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-        <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
+        <script type="text/javascript" src="https://js.stripe.com/v3/"></script>
         <script type="text/javascript">
+        $(function() {
+            function stripeTokenHandler(token) {
+            // Insert the token ID into the form so it gets submitted to the server
+            var form = document.getElementById('payment-form');
+            var hiddenInput = document.createElement('input');
+            hiddenInput.setAttribute('type', 'hidden');
+            hiddenInput.setAttribute('name', 'stripe_token');
+            hiddenInput.setAttribute('value', token.id);
+            form.appendChild(hiddenInput);
+
+            // Submit the form
+            form.submit();
+        }
         var stripe = Stripe('{{ publishable_key }}');
         
-            var stripeResponseHandler = function(response) {
-                var $form = $('#checkout-form');
+        // Create an instance of Elements
+        var elements = stripe.elements();
         
-                if (response.error) {
-                    // Show the errors on the form
-                    $form.find('.payment-errors').text(response.error.message);
-                    $form.find('.payment-errors').addClass('alert');
-                    $form.find('.payment-errors').addClass('alert-error');
-                    $form.find('button').prop('disabled', false);
-                } else {
-                    // token contains id, last4, and card type
-                    var token = response.id;
-                    // Insert the token into the form so it gets submitted to the server
-                    $form.append($('<input type="hidden" name="stripe_token" />').val(token));
-                    // and re-submit
-                    $form.get(0).submit();
-                }
-            };
+        // Custom styling can be passed to options when creating an Element.
+        // (Note that this demo uses a wider set of styles than the guide below.)
+        var style = {
+          base: {
+            color: '#32325d',
+            lineHeight: '24px',
+            fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+            fontSmoothing: 'antialiased',
+            fontSize: '16px',
+            '::placeholder': {
+              color: '#aab7c4'
+            }
+          },
+          invalid: {
+            color: '#fa755a',
+            iconColor: '#fa755a'
+          }
+        };
         
-            jQuery(function($) {
-                $('#checkout-form').submit(function(e) {
-                    var $form = $(this);
+        // Create an instance of the card Element
+        var card = elements.create('card', {style: style});
         
-                    // Disable the submit button to prevent repeated clicks
-                    $form.find('button').prop('disabled', true);
+        // Add an instance of the card Element into the `card-element` <div>
+        card.mount('#card-element');
         
-                    Stripe.createToken($form).then(stripeResponseHandler);
+        // Handle real-time validation errors from the card Element.
+        card.addEventListener('change', function(event) {
+          var displayError = document.getElementById('card-errors');
+          if (event.error) {
+            displayError.textContent = event.error.message;
+          } else {
+            displayError.textContent = '';
+          }
+        });
         
-                    // Prevent the form from submitting with the default action
-                    return false;
-                });
-            });
+        // Handle form submission
+        var form = document.getElementById('payment-form');
+        form.addEventListener('submit', function(event) {
+          event.preventDefault();
+        
+          stripe.createToken(card, {"currency":"aud"}).then(function(result) {
+            if (result.error) {
+              // Inform the user if there was an error
+              var errorElement = document.getElementById('card-errors');
+              errorElement.textContent = result.error.message;
+            } else {
+              // Send the token to your server
+              alert(result.token);
+              stripeTokenHandler(result.token);
+            }
+          });
+        });
+        });
         </script>
         {% endblock %}
         
         {% block content %}
         <div class="container">
             <div class="row">
-                <form method="post" action="" id="checkout-form">
-                    {% csrf_token %}
-                    <div class="form-group">
-                        <label class="control-label" for="name">Name</label>
-                        <div class="controls">
-                            <input type="text" id="name" class="form-control" data-stripe="name" />
+                    
+                    <form action="" method="post" id="payment-form">
+                      <div class="form-row">
+                        <label for="card-element">
+                          Credit or debit card
+                        </label>
+                        <div id="card-element">
+                          <!-- a Stripe Element will be inserted here. -->
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="address_line1">Address Line</label>
-                        <div class="controls">
-                            <input type="text" id="address_line1" class="form-control" data-stripe="address_line1" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="address_line2">Address Line 2</label>
-                        <div class="controls">
-                            <input type="text" id="address_line2" class="form-control" data-stripe="address_line2" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="address_city">City</label>
-                        <div class="controls">
-                            <input type="text" id="address_city" class="form-control" data-stripe="address_city" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="address_state">State</label>
-                        <div class="controls">
-                            <input type="text" id="address_state" class="form-control" data-stripe="address_state" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="address_zip">Zip</label>
-                        <div class="controls">
-                            <input type="text" id="address_zip" class="form-control" data-stripe="address_zip" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="address_country">Country</label>
-                        <div class="controls">
-                            <input type="text" id="address_country" class="form-control" data-stripe="address_country" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                    <label class="control-label" for="card">Card</label>
-                    <div class="controls">
-                        <input type="text" id="card" class="form-control" data-stripe="number" />
-                    </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="">Expiration (MM/YYYY)</label>
-                        <div class="row">
-                            <div class="col-xs-2">
-                                <input type="text" size="2" data-stripe="exp-month" class="form-control" />
-                            </div>
-                            <div class="col-xs-2">
-                                <input type="text" size="4" data-stripe="exp-year" class="form-control" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="cvc">CVC</label>
-                        <div class="controls">
-                            <input type="text" id="cvc" size="4" class="form-control" data-stripe="cvc" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="controls">
-                            <input type="submit" value="Checkout" class="btn btn-primary" />
-                        </div>
-                    </div>
-                </form>
+                        {% csrf_token %}
+                        <!-- Used to display form errors -->
+                        <div id="card-errors" role="alert"></div>
+                      </div>
+                    
+                      <button>Submit Payment</button>
+                    </form>
             </div>
         </div>
         {% endblock %}

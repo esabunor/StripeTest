@@ -54,8 +54,8 @@ class StripeApiTest(TestCase):
 
     def test_adding_external_account(self):
         account = stripe.Account.retrieve("acct_1B4q0jKOv9qXOFkx")
-        #kwargs = {"object":"card", "number": 4242424242424242, "cvc":333, "exp_month":8, "exp_year":2018}
-        account.external_accounts.create(external_account="card_1B4qnzIs3uaJ3rA7HW7PAf4H")
+        kwargs = {"object":"bank_account","account_number": "000123456", "routing_number":110000, "country":"AU", "currency":"aud"}
+        account.external_accounts.create(external_account=kwargs)
         account.save()
 
     def test_verifying_account(self):
@@ -102,7 +102,31 @@ class StripeApiTest(TestCase):
         )
     
     def test_paying_out_account(self):
-        pass
+        account = stripe.Account.retrieve("acct_1B4q0jKOv9qXOFkx")
+        account.payout_schedule = {'interval':"manual"}
+        stripe.Payout.create(
+            amount=1000,
+            currency='aud',
+            stripe_account=account.id,
+        )
     
     def test_paying_out_account_with_customer(self):
-        pass
+        account = stripe.Account.retrieve("acct_1B4q0jKOv9qXOFkx")
+        customer = stripe.Customer.retrieve("cus_BRjIE3U26cpZmC")
+        charge = stripe.Charge.create(
+            amount=2000,
+            currency='aud',
+            customer=customer.id,
+            destination={'account':account.id},
+        )
+
+    def test_paying_out_account_with_customer_and_charge(self):
+        account = stripe.Account.retrieve("acct_1B4q0jKOv9qXOFkx")
+        customer = stripe.Customer.retrieve("cus_BRjIE3U26cpZmC")
+        charge = stripe.Charge.create(
+            amount=2000,
+            currency='aud',
+            customer=customer.id,
+            destination={'account':account.id},
+            application_fee=200,
+        )

@@ -16,5 +16,10 @@ class StripeFormView(FormView):
 
     def form_valid(self, form):
         customer = stripe.Account.retrieve("acct_1B4q0jKOv9qXOFkx")
-        customer.external_account.create(external_account=form.cleaned_data['stripe_token'])
+        print(form.cleaned_data['stripe_token'])
+        customer.external_accounts.create(external_account=form.cleaned_data['stripe_token'])
         return super(StripeFormView, self).form_valid(form)
+
+    def form_invalid(self, form):
+        print(form.errors)
+        return super(StripeFormView, self).form_invalid(form)
